@@ -129,7 +129,7 @@ private[spark] class CosmosDBSource(sqlContext: SQLContext,
     val nextTokens = getOffsetJsonForProgress(CosmosDBRDDIterator.getCollectionTokens(Config(streamConfigMap)))
     val currentTokens = getOffsetJsonForProgress(
       CosmosDBRDDIterator.getCollectionTokens(Config(streamConfigMap),
-        shouldGetCurrentToken = true))
+      shouldGetCurrentToken = true))
 
     // Only getting the data in the following cases:
     // - The provided end offset is the current offset (next tokens), the stream is progressing to the batch
@@ -141,7 +141,8 @@ private[spark] class CosmosDBSource(sqlContext: SQLContext,
         streamConfigMap
           .-(CosmosDBConfig.ChangeFeedContinuationToken)
           .+((CosmosDBConfig.ChangeFeedContinuationToken, end.json)))
-      sqlContext.read.cosmosDB(schema, readConfig)
+      val currentDf = sqlContext.read.cosmosDB(schema, readConfig, sqlContext)
+      currentDf
     } else {
       logDebug(s"Skipping this batch")
       sqlContext.createDataFrame(sqlContext.emptyDataFrame.rdd, schema)

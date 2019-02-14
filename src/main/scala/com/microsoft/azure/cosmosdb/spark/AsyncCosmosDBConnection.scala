@@ -183,4 +183,3 @@ case class AsyncCosmosDBConnection(config: Config) extends LoggingTrait with Ser
     )
   }
 }
-

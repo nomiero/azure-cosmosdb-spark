@@ -157,7 +157,6 @@ class CosmosDBRDDIterator(hadoopConfig: mutable.Map[String, String],
       */
     def queryDocuments: Iterator[Document] = {
       val feedOpts = new FeedOptions()
-
       feedOpts.setPageSize(pageSize)
       val maxDegreeOfParallelism = config
         .get[String](CosmosDBConfig.QueryMaxDegreeOfParallelism)

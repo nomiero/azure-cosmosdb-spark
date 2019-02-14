@@ -136,15 +136,13 @@ See other sample [Jupyter](https://github.com/dennyglee/azure-cosmosdb-spark/tre
 
 ## Requirements
 
-## Requirements
-
 `azure-cosmosdb-spark` has been regularly tested using HDInsight 3.6 (Spark 2.1), 3.7 (Spark 2.2) and Azure Databricks Runtime 3.5 (Spark 2.2.1), 4.0 (Spark 2.3.0).
 
 <em>Review <strong>supported</strong> component versions</em>
 
 | Component | Versions Supported |
 | --------- | ------------------ |
-| Apache Spark | 2.2.1, 2.3 |
+| Apache Spark | 2.2.1, 2.3.X, 2.4.X |
 | Scala | 2.11 |
 | Python | 2.7, 3.6 |
 | Azure Cosmos DB Java SDK | 1.16.1, 1.16.2 |
@@ -160,7 +158,8 @@ You can build and/or use the maven coordinates to work with `azure-cosmosdb-spar
 
 | Spark | Scala | Latest version |
 |---|---|---|
-| 2.3.0 | 2.11 | [azure-cosmosdb-spark_2.3.0_2.11_1.3.2](https://search.maven.org/artifact/com.microsoft.azure/azure-cosmosdb-spark_2.3.0_2.11/1.3.2/jar)
+| 2.4.0 | 2.11 | [azure-cosmosdb-spark_2.4.0_2.11_1.3.5](https://search.maven.org/artifact/com.microsoft.azure/azure-cosmosdb-spark_2.4.0_2.11/1.3.5/jar)
+| 2.3.0 | 2.11 | [azure-cosmosdb-spark_2.3.0_2.11_1.3.3](https://search.maven.org/artifact/com.microsoft.azure/azure-cosmosdb-spark_2.3.0_2.11/1.3.3/jar)
 | 2.2.0 | 2.11 | [azure-cosmosdb-spark_2.2.0_2.11_1.1.1](https://search.maven.org/#artifactdetails%7Ccom.microsoft.azure%7Cazure-cosmosdb-spark_2.2.0_2.11%7C1.1.1%7Cjar)
 | 2.1.0 | 2.11 | [azure-cosmosdb-spark_2.1.0_2.11_1.2.2](https://search.maven.org/artifact/com.microsoft.azure/azure-cosmosdb-spark_2.1.0_2.11/1.2.2)
 
@@ -194,7 +193,7 @@ If you're using Jupyter notebooks within HDInsight, you can use spark-magic `%%c
 ### Using Databricks notebooks
 Please create a library using within your Databricks workspace by following the guidance within the Azure Databricks Guide > [Use the Azure Cosmos DB Spark connector](https://docs.azuredatabricks.net/spark/latest/data-sources/azure/cosmosdb-connector.html)
 
-> Note, the **Use the Azure Cosmos DB Spark Connector** page is currently not up-to-date; issue is assigned to @dennyglee.  Instead of downloading the six separate JARs into six different libraries, you can download the uber JAR of [azure-cosmosdb-spark_2.3.0_2.11 (1.2.2)](https://search.maven.org/remotecontent?filepath=com/microsoft/azure/azure-cosmosdb-spark_2.3.0_2.11/1.2.2/azure-cosmosdb-spark_2.3.0_2.11-1.2.2-uber.jar) from maven and just install this one JAR / library.
+> Note, the **Use the Azure Cosmos DB Spark Connector** page is currently not up-to-date; issue is assigned to @dennyglee.  Instead of downloading the six separate JARs into six different libraries, you can download the uber JAR of [https://search.maven.org/remotecontent?filepath=com/microsoft/azure/azure-cosmosdb-spark_2.3.0_2.11/1.2.2/azure-cosmosdb-spark_2.3.0_2.11-1.2.2-uber.jar) from maven and just install this one JAR / library.
 
 
 ### Build the connector
@@ -242,6 +241,9 @@ Change Feed
 * [Stream Processing Changes using Azure Cosmos DB Change Feed and Apache Spark](https://github.com/Azure/azure-cosmosdb-spark/wiki/Stream-Processing-Changes-using-Azure-Cosmos-DB-Change-Feed-and-Apache-Spark)
 * [Change Feed Demos](https://github.com/Azure/azure-cosmosdb-spark/wiki/Change-Feed-demos)
 * [Structured Stream Demos](https://github.com/Azure/azure-cosmosdb-spark/wiki/Structured-Stream-demos)
+
+Monitoring
+* [Monitoring Spark jobs with application insights](https://github.com/Azure/azure-cosmosdb-spark/tree/2.3/samples/monitoring)
 
 &nbsp;
 

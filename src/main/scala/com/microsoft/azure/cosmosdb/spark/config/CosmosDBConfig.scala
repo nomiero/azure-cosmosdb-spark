@@ -23,8 +23,8 @@
 package com.microsoft.azure.cosmosdb.spark.config
 
 /**
-  * Values and Functions for access and parse the configuration parameters
-  */
+ * Values and Functions for access and parse the configuration parameters
+ */
 object CosmosDBConfig {
 
   //  Parameter names
@@ -89,6 +89,7 @@ object CosmosDBConfig {
   val MaxMiniBatchUpdateCount = "maxminibatchupdatecount"
   val PartitionKeyDefinition = "partitionkeydefinition"
   val WriteThroughputBudget = "writethroughputbudget"
+  val BulkImportMaxConcurrencyPerPartitionRange = "bulkimport_maxconcurrencyperpartitionrange"
 
   // Rx Java related write config
   val WritingBatchDelayMs = "writingbatchdelayms"
@@ -131,7 +132,7 @@ object CosmosDBConfig {
   val DefaultQueryMaxRetryOnThrottled = 1000
   val DefaultQueryMaxRetryWaitTimeSecs = 1000
   val DefaultSamplingRatio = 1.0
-  val DefaultPageSize = 50
+  val DefaultPageSize = 1000
   val DefaultSampleSize = DefaultPageSize
   val DefaultUpsert = false
   val DefaultReadChangeFeed = false

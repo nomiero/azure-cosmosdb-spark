@@ -21,6 +21,8 @@
   * SOFTWARE.
   */
 package com.microsoft.azure.cosmosdb.spark
+
+import java.lang.management.ManagementFactory
 import com.microsoft.azure.cosmosdb.spark.config._
 import com.microsoft.azure.documentdb._
 import com.microsoft.azure.documentdb.bulkexecutor.DocumentBulkExecutor
@@ -29,7 +31,6 @@ import com.microsoft.azure.documentdb.internal._
 import scala.collection.JavaConversions._
 import scala.collection.mutable.ListBuffer
 import scala.language.implicitConversions
-import java.lang.management.ManagementFactory
 
 
 case class ClientConfiguration(host: String,
@@ -40,30 +41,32 @@ object CosmosDBConnection {
   // For verification purpose
   var lastConnectionPolicy: ConnectionPolicy = _
   var lastConsistencyLevel: Option[ConsistencyLevel] = _
-  var client: DocumentClient = _
+  var clients: scala.collection.mutable.Map[String, DocumentClient] = scala.collection.mutable.Map[String,DocumentClient]()
 
   def getClient(connectionMode: ConnectionMode, clientConfiguration: ClientConfiguration): DocumentClient = synchronized {
-      if (client == null) {
-          client = new DocumentClient(
+      if (!clients.contains(clientConfiguration.host)) {
+          clients(clientConfiguration.host) = new DocumentClient(
           clientConfiguration.host,
           clientConfiguration.key,
           clientConfiguration.connectionPolicy,
           clientConfiguration.consistencyLevel)
-        CosmosDBConnection.lastConsistencyLevel = Some(clientConfiguration.consistencyLevel)
+          CosmosDBConnection.lastConsistencyLevel = Some(clientConfiguration.consistencyLevel)
       }
 
-      client
+      clients.get(clientConfiguration.host).get
    }
  }
 
 private[spark] case class CosmosDBConnection(config: Config) extends LoggingTrait with Serializable {
 
   private val databaseName = config.get[String](CosmosDBConfig.Database).get
+  private val databaseLink = s"${Paths.DATABASES_PATH_SEGMENT}/$databaseName"
   private val collectionName = config.get[String](CosmosDBConfig.Collection).get
   val collectionLink = s"${Paths.DATABASES_PATH_SEGMENT}/$databaseName/${Paths.COLLECTIONS_PATH_SEGMENT}/$collectionName"
   private val connectionMode = ConnectionMode.valueOf(config.get[String](CosmosDBConfig.ConnectionMode)
     .getOrElse(CosmosDBConfig.DefaultConnectionMode))
   private var collection: DocumentCollection = _
+  private var database: Database = _
   @transient private var client: DocumentClient = _
 
   @transient private var bulkImporter: DocumentBulkExecutor = _
@@ -106,8 +109,8 @@ private[spark] case class CosmosDBConnection(config: Config) extends LoggingTrai
 
   def setDefaultClientRetryPolicy: Unit = {
     if (documentClient != null) {
-      documentClient.getConnectionPolicy().getRetryOptions().setMaxRetryAttemptsOnThrottledRequests(9);
-      documentClient.getConnectionPolicy().getRetryOptions().setMaxRetryWaitTimeInSeconds(30);
+      documentClient.getConnectionPolicy().getRetryOptions().setMaxRetryAttemptsOnThrottledRequests(1000);
+      documentClient.getConnectionPolicy().getRetryOptions().setMaxRetryWaitTimeInSeconds(1000);
     }
   }
 
@@ -125,6 +128,13 @@ private[spark] case class CosmosDBConnection(config: Config) extends LoggingTrai
     collection
   }
 
+  def getDatabase: Database = {
+    if (database == null) {
+      database = documentClient.readDatabase(databaseLink, null).getResource
+    }
+    database
+  }
+
   def getAllPartitions: Array[PartitionKeyRange] = {
     var ranges = documentClient.readPartitionKeyRanges(collectionLink, null.asInstanceOf[FeedOptions])
     ranges.getQueryIterator.toArray
@@ -137,10 +147,15 @@ private[spark] case class CosmosDBConnection(config: Config) extends LoggingTrai
   }
 
   def getCollectionThroughput: Int = {
-    val offers = documentClient.queryOffers(s"SELECT * FROM c where c.offerResourceId = '${getCollection.getResourceId}'", null).getQueryIterable.toList
+    var offers = documentClient.queryOffers(s"SELECT * FROM c where c.offerResourceId = '${getCollection.getResourceId}'", null).getQueryIterable.toList
     if (offers.isEmpty) {
-      throw new IllegalStateException("Cannot find Collection's corresponding offer")
+      offers = documentClient.queryOffers(s"SELECT * FROM c where c.offerResourceId = '${getDatabase.getResourceId}'", null).getQueryIterable.toList
+      // database throughput
+      if (offers.isEmpty) {
+          throw new IllegalStateException("Cannot find the collection corresponding offer.")
+      }
     }
+
     val offer = offers.get(0)
     val collectionThroughput = if (offer.getString("offerVersion") == "V1")
       CosmosDBConfig.SinglePartitionCollectionOfferThroughput
@@ -150,7 +165,7 @@ private[spark] case class CosmosDBConnection(config: Config) extends LoggingTrai
   }
 
   def queryDocuments (queryString : String,
-                      feedOpts : FeedOptions) : Iterator [Document] = {
+        feedOpts : FeedOptions) : Iterator [Document] = {
     val feedResponse = documentClient.queryDocuments(collectionLink, new SqlQuerySpec(queryString), feedOpts)
     feedResponse.getQueryIterable.iterator()
   }
@@ -197,8 +212,8 @@ private[spark] case class CosmosDBConnection(config: Config) extends LoggingTrai
   }
 
   def upsertDocument(collectionLink: String,
-                     document: Document,
-                     requestOptions: RequestOptions): Unit = {
+                      document: Document,
+                      requestOptions: RequestOptions): Unit = {
     logTrace(s"Upserting document $document")
     documentClient.upsertDocument(collectionLink, document, requestOptions, false)
   }
@@ -266,5 +281,4 @@ private[spark] case class CosmosDBConnection(config: Config) extends LoggingTrai
       consistencyLevel
     )
   }
-
 }

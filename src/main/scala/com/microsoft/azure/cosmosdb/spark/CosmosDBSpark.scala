@@ -54,8 +54,8 @@ import scala.util.Random
 object CosmosDBSpark extends LoggingTrait {
 
   /**
-    * The default source string for creating DataFrames from CosmosDB
-    */
+   * The default source string for creating DataFrames from CosmosDB
+   */
   val defaultSource = classOf[DefaultSource].getCanonicalName
 
   /**
@@ -192,12 +192,12 @@ object CosmosDBSpark extends LoggingTrait {
         savePartition(iter, writeConfig, numPartitions, offerThroughput), preservesPartitioning = true)
     mapRdd.collect()
 
-    //    // All tasks have been completed, clean up the file checkpoints
-    //    val adlCheckpointPath = writeConfig.get[String](CosmosDBConfig.adlFileCheckpointPath)
-    //    if (adlCheckpointPath.isDefined) {
-    //      val hdfsUtils = new HdfsUtils(hadoopConfig)
-    //      ADLConnection.cleanUpProgress(hdfsUtils, adlCheckpointPath.get)
-    //    }
+//    // All tasks have been completed, clean up the file checkpoints
+//    val adlCheckpointPath = writeConfig.get[String](CosmosDBConfig.adlFileCheckpointPath)
+//    if (adlCheckpointPath.isDefined) {
+//      val hdfsUtils = new HdfsUtils(hadoopConfig)
+//      ADLConnection.cleanUpProgress(hdfsUtils, adlCheckpointPath.get)
+//    }
   }
 
   private def bulkUpdate[D: ClassTag](iter: Iterator[D],
@@ -264,7 +264,8 @@ object CosmosDBSpark extends LoggingTrait {
                                       writingBatchSize: Int,
                                       rootPropertyToSave: Option[String],
                                       partitionKeyDefinition: Option[String],
-                                      upsert: Boolean): Unit = {
+                                      upsert: Boolean,
+                                      maxConcurrencyPerPartitionRange: Integer): Unit = {
 
     // Set retry options high for initialization (default values)
     connection.setDefaultClientRetryPolicy
@@ -294,7 +295,7 @@ object CosmosDBSpark extends LoggingTrait {
       }
       documents.add(document.toJson())
       if (documents.size() >= writingBatchSize) {
-        bulkImportResponse = importer.importAll(documents, upsert, false, null)
+        bulkImportResponse = importer.importAll(documents, upsert, false, maxConcurrencyPerPartitionRange)
         if (!bulkImportResponse.getErrors.isEmpty) {
           throw new Exception("Errors encountered in bulk import API execution. Exceptions observed:\n" + bulkImportResponse.getErrors.toString)
         }
@@ -305,7 +306,7 @@ object CosmosDBSpark extends LoggingTrait {
       }
     })
     if (documents.size() > 0) {
-      bulkImportResponse = importer.importAll(documents, upsert, false, null)
+      bulkImportResponse = importer.importAll(documents, upsert, false, maxConcurrencyPerPartitionRange)
       if (!bulkImportResponse.getErrors.isEmpty) {
         throw new Exception("Errors encountered in bulk import API execution. Exceptions observed:\n" + bulkImportResponse.getErrors.toString)
       }
@@ -317,11 +318,11 @@ object CosmosDBSpark extends LoggingTrait {
 
 
   private def saveFilePartition[D: ClassTag](iter: Iterator[D],
-                                             config: Config,
-                                             partitionCount: Int,
-                                             filePartition: FilePartition,
-                                             hadoopConfig: Map[String, String],
-                                             offerThroughput: Int): Iterator[D] = {
+                                              config: Config,
+                                              partitionCount: Int,
+                                              filePartition: FilePartition,
+                                              hadoopConfig: Map[String, String],
+                                              offerThroughput: Int): Iterator[D] = {
     val connection = new CosmosDBConnection(config)
 
     // Check the status of the files
@@ -408,10 +409,10 @@ object CosmosDBSpark extends LoggingTrait {
   }
 
   private def savePartition[D: ClassTag](connection: CosmosDBConnection,
-                                         iter: Iterator[D],
-                                         config: Config,
-                                         partitionCount: Int,
-                                         offerThroughput: Int): Iterator[D] = {
+                                          iter: Iterator[D],
+                                          config: Config,
+                                          partitionCount: Int,
+                                          offerThroughput: Int): Iterator[D] = {
 
     val connection:CosmosDBConnection = new CosmosDBConnection(config)
     val asyncConnection: AsyncCosmosDBConnection = new AsyncCosmosDBConnection(config)
@@ -445,6 +446,10 @@ object CosmosDBSpark extends LoggingTrait {
     val partitionKeyDefinition = config
       .get[String](CosmosDBConfig.PartitionKeyDefinition)
 
+    val maxConcurrencyPerPartitionRangeStr = config.get[String](CosmosDBConfig.BulkImportMaxConcurrencyPerPartitionRange)
+    val maxConcurrencyPerPartitionRange = if (maxConcurrencyPerPartitionRangeStr.nonEmpty)
+      Integer.valueOf(maxConcurrencyPerPartitionRangeStr.get) else null
+
     // Delay the start as the number of tasks grow to avoid throttling at initialization
     val maxDelaySec: Int = (partitionCount / clientInitDelay) + (if (partitionCount % clientInitDelay > 0) 1 else 0)
     if (maxDelaySec > 0)
@@ -459,7 +464,8 @@ object CosmosDBSpark extends LoggingTrait {
         bulkUpdate(iter, connection, offerThroughput, writingBatchSize, partitionKeyDefinition)
       } else if (isBulkImporting) {
         logDebug(s"Writing partition with bulk import")
-        bulkImport(iter, connection, offerThroughput, writingBatchSize, rootPropertyToSave, partitionKeyDefinition, upsert)
+        bulkImport(iter, connection, offerThroughput, writingBatchSize, rootPropertyToSave,
+          partitionKeyDefinition, upsert, maxConcurrencyPerPartitionRange)
       } else {
         logDebug(s"Writing partition with rxjava")
         asyncConnection.importWithRxJava(iter, asyncConnection, writingBatchSize, writingBatchDelayMs, rootPropertyToSave, upsert)
@@ -514,19 +520,19 @@ object CosmosDBSpark extends LoggingTrait {
     dataFrameWriter.format(defaultSource).options(writeConfig.asOptions).save()
 
   /**
-    * Creates a DataFrameReader with `CosmosDB` as the source
-    *
-    * @param sparkSession the SparkSession
-    * @return the DataFrameReader
-    */
+   * Creates a DataFrameReader with `CosmosDB` as the source
+   *
+   * @param sparkSession the SparkSession
+   * @return the DataFrameReader
+   */
   def read(sparkSession: SparkSession): DataFrameReader = sparkSession.read.format(defaultSource)
 
   /**
-    * Creates a DataFrameWriter with the `CosmosDB` underlying output data source.
-    *
-    * @param dataFrame the DataFrame to convert into a DataFrameWriter
-    * @return the DataFrameWriter
-    */
+   * Creates a DataFrameWriter with the `CosmosDB` underlying output data source.
+   *
+   * @param dataFrame the DataFrame to convert into a DataFrameWriter
+   * @return the DataFrameWriter
+   */
   def write(dataFrame: DataFrame): DataFrameWriter[Row] = dataFrame.write.format(defaultSource)
 
   /**
@@ -795,3 +801,4 @@ case class CosmosDBSpark(sparkSession: SparkSession, readConfig: Config) {
   def toDS[T](beanClass: Class[T]): Dataset[T] = toDF[T](beanClass).as(Encoders.bean(beanClass))
 
 }
+
