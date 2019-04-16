@@ -50,6 +50,10 @@ object CosmosDBConfig {
 
   // Query related config
   val QueryCustom = "query_custom"
+  val QueryCustom2 = "query_custom"
+  val QueryCustom3 = "query_custom"
+  val QueryCustom4 = "query_custom"
+
   val QueryPageSize = "query_pagesize"
   val QueryMaxRetryOnThrottled = "query_maxretryattemptsonthrottledrequests"
   val QueryMaxRetryWaitTimeSecs = "query_maxretrywaittimeinseconds"

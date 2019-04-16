@@ -197,11 +197,28 @@ class CosmosDBRDDIterator(hadoopConfig: mutable.Map[String, String],
         .getOrElse(FilterConverter.createQueryString(requiredColumns, filters))
       logInfo(s"CosmosDBRDDIterator::LazyReader, created query string: $queryString")
 
+      val queryString2 =  config
+        .get[String](CosmosDBConfig.QueryCustom2)
+        .getOrElse(FilterConverter.createQueryString(requiredColumns, filters))
+
+      val queryString3 =  config
+        .get[String](CosmosDBConfig.QueryCustom2)
+        .getOrElse(FilterConverter.createQueryString(requiredColumns, filters))
+
+      val queryString4 =  config
+        .get[String](CosmosDBConfig.QueryCustom3)
+        .getOrElse(FilterConverter.createQueryString(requiredColumns, filters))
+
+      val queryString5 =  config
+        .get[String](CosmosDBConfig.QueryCustom4)
+        .getOrElse(FilterConverter.createQueryString(requiredColumns, filters))
+
+      val queries = Array(queryString, queryString2, queryString3, queryString4, queryString5)
       if (queryString == FilterConverter.defaultQuery) {
         // If there is no filters, read feed should be used
         connection.readDocuments(feedOpts)
       } else {
-        connection.queryDocuments(queryString, feedOpts)
+        connection.queryDocuments(queries, feedOpts)
       }
     }
 

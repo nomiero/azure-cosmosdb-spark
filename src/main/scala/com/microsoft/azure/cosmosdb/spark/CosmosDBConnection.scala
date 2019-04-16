@@ -181,13 +181,13 @@ private[spark] case class CosmosDBConnection(config: Config) extends LoggingTrai
     documentClient = CosmosDBConnection.reinitializeClient(connectionMode, getClientConfiguration(config))
   }
 
-  def queryDocuments (queryString : String,
+  def queryDocuments (queryStrings : Array[String],
         feedOpts : FeedOptions) : Iterator [Document] = {
     val feedResponse = documentClient.queryDocuments(collectionLink, new SqlQuerySpec(queryString), feedOpts)
     feedResponse.getQueryIterable.iterator()
   }
 
-  def queryDocuments (collectionLink: String, queryString : String,
+  def queryDocuments (collectionLink: String, queryStrings : Array[String],
                       feedOpts : FeedOptions) : Iterator [Document] = {
     val feedResponse = documentClient.queryDocuments(collectionLink, new SqlQuerySpec(queryString), feedOpts)
     feedResponse.getQueryIterable.iterator()
