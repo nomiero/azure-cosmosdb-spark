@@ -25,8 +25,8 @@ package com.microsoft.azure.cosmosdb.spark.schema
 import java.sql.{Date, Timestamp}
 import java.util
 
+import com.microsoft.azure.cosmosdb.Document
 import com.microsoft.azure.cosmosdb.spark.LoggingTrait
-import com.microsoft.azure.documentdb._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema

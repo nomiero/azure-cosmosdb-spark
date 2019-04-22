@@ -27,6 +27,7 @@ import java.util.concurrent.TimeUnit
 
 import com.microsoft.azure.cosmosdb.spark.config._
 import rx.Observable
+import rx.functions.Func1
 import com.microsoft.azure.cosmosdb._
 import com.microsoft.azure.cosmosdb.internal._
 import com.microsoft.azure.cosmosdb.rx.AsyncDocumentClient
@@ -60,6 +61,53 @@ object AsyncCosmosDBConnection {
 }
 
 case class AsyncCosmosDBConnection(config: Config) extends LoggingTrait with Serializable {
+  class PKRObservableMapper extends Func1[FeedResponse[PartitionKeyRange], Observable[PartitionKeyRange]] {
+    override def call(page: FeedResponse[PartitionKeyRange]): Observable[PartitionKeyRange] = Observable.from(page.getResults)
+  }
+
+  def getAllPartitions: Array[PartitionKeyRange] = {
+    val ranges = asyncDocumentClient.readPartitionKeyRanges(collectionLink, null.asInstanceOf[FeedOptions])
+    ranges.flatMap(new PKRObservableMapper).toBlocking.getIterator.toArray
+  }
+
+  def getAllPartitions(query: String): Array[PartitionKeyRange] = {
+    val ranges = asyncDocumentClient.readPartitionKeyRanges(collectionLink, null.asInstanceOf[FeedOptions])
+    ranges.flatMap(new PKRObservableMapper).toBlocking.getIterator.toArray
+  }
+
+  def queryDocumentChangeFeed(changeFeedOptions: ChangeFeedOptions, structuredStreaming: Boolean, shouldInferStreamSchema: Boolean) = {
+    throw new NotImplementedError("Not implemented")
+  }
+
+  class QueryObservableMapper extends Func1[FeedResponse[Document], Observable[Document]] {
+    override def call(page: FeedResponse[Document]): Observable[Document] = Observable.from(page.getResults)
+  }
+
+  def queryDocuments(queries: Array[String], feedOpts: FeedOptions): Iterator[Document] = {
+    queryDocuments(collectionLink, queries, feedOpts)
+  }
+
+  def queryDocuments(collectionLink: String, queries: Array[String], feedOpts: FeedOptions): Iterator[Document] = {
+    val observables: Array[Observable[FeedResponse[Document]]] = queries.map(query => {
+      logInfo(s"Getting observable for query: $query")
+      asyncDocumentClient.queryDocuments(collectionLink, query, feedOpts)
+    });
+
+    Observable.merge(observables.toList, 5)
+      .flatMap(new QueryObservableMapper)
+      .toBlocking
+      .getIterator
+  }
+
+  def readDocuments(feedOpts: FeedOptions): Iterator[Document] =
+    readDocuments(collectionLink, feedOpts)
+
+  def readDocuments(collectionLink: String, feedOpts: FeedOptions): Iterator[Document] =
+    asyncDocumentClient.readDocuments(collectionLink, feedOpts)
+      .flatMap(new QueryObservableMapper)
+      .toBlocking
+      .getIterator
+
 
   private lazy val asyncDocumentClient: AsyncDocumentClient = {
     AsyncCosmosDBConnection.getClient(getClientConfiguration(config))
@@ -71,8 +119,6 @@ case class AsyncCosmosDBConnection(config: Config) extends LoggingTrait with Ser
   // Cosmos DB Java Async SDK supports Gateway mode
   private val connectionMode = ConnectionMode.valueOf(config.get[String](CosmosDBConfig.ConnectionMode)
     .getOrElse(com.microsoft.azure.documentdb.ConnectionMode.Gateway.toString))
-
-  @transient private var asyncClient: AsyncDocumentClient = _
 
   def importWithRxJava[D: ClassTag](iter: Iterator[D],
                                     connection: AsyncCosmosDBConnection,
@@ -118,10 +164,15 @@ case class AsyncCosmosDBConnection(config: Config) extends LoggingTrait with Ser
     }
   }
 
-  def upsertDocument(document: Document,
+  def upsertDocument(collectionLink: String, document: Document,
                      requestOptions: RequestOptions): Observable[ResourceResponse[Document]] = {
     logTrace(s"Upserting document $document")
     asyncDocumentClient.upsertDocument(collectionLink, document, requestOptions, false)
+  }
+
+  def upsertDocument(document: Document,
+                     requestOptions: RequestOptions): Observable[ResourceResponse[Document]] = {
+    upsertDocument(collectionLink, document, requestOptions)
   }
 
   def createDocument(document: Document,

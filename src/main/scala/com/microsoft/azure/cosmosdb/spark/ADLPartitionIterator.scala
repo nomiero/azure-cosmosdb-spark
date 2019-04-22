@@ -22,8 +22,9 @@
   */
 package com.microsoft.azure.cosmosdb.spark
 
+import com.microsoft.azure.cosmosdb.Document
 import com.microsoft.azure.cosmosdb.spark.config.Config
-import com.microsoft.azure.documentdb.Document
+
 
 class ADLPartitionIterator(config: Config, adlFilePartition: ADLFilePartition) extends Iterator[Document] {
 

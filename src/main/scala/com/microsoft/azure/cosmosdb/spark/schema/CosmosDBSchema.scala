@@ -24,7 +24,8 @@ package com.microsoft.azure.cosmosdb.spark.schema
 
 import java.util
 
-import com.microsoft.azure.documentdb.Document
+import com.microsoft.azure.cosmosdb.Document
+
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.analysis.TypeCoercion
 import org.apache.spark.sql.types._

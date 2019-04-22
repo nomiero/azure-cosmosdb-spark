@@ -346,7 +346,7 @@ object CosmosDBSpark extends LoggingTrait {
       if (adlCheckpointPath.isDefined) {
         isProcessed = ADLConnection.isAdlFileProcessed(hdfsUtils, adlCheckpointPath.get, file.filePath, writingBatchId.get)
       } else if (fileStoreCollection.isDefined) {
-        isProcessed = ADLConnection.isAdlFileProcessed(connection, collectionLink, file.filePath, writingBatchId.get)
+        // isProcessed = ADLConnection.isAdlFileProcessed(connection, collectionLink, file.filePath, writingBatchId.get)
       }
       processedFileCount = processedFileCount + (if (isProcessed) 1 else 0)
     })

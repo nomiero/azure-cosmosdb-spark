@@ -28,11 +28,11 @@ import java.nio.charset.StandardCharsets
 import java.time.Instant
 import java.util.UUID
 
+import com.microsoft.azure.cosmosdb.{Document, FeedOptions}
 import com.microsoft.azure.cosmosdb.spark.config.{Config, CosmosDBConfig}
 import com.microsoft.azure.cosmosdb.spark.util.HdfsUtils
 import com.microsoft.azure.datalake.store.oauth2.ClientCredsTokenProvider
 import com.microsoft.azure.datalake.store.{ADLStoreClient, DirectoryEntry}
-import com.microsoft.azure.documentdb.{Document, FeedOptions}
 
 object ADLConnection {
   def markAdlFileProcessed(hdfsUtils: HdfsUtils,
@@ -49,7 +49,7 @@ object ADLConnection {
                         writingBatchId: String,
                         isInProgress: Boolean,
                         isComplete: Boolean): Unit = {
-    val d = new Document()
+    val d = new com.microsoft.azure.documentdb.Document()
     d.setId(URLEncoder.encode(adlFilePath, StandardCharsets.UTF_8.name()))
     d.set("name", adlFilePath)
     d.set("createDate", Instant.now.toString)
@@ -67,20 +67,20 @@ object ADLConnection {
     hdfsUtils.fileExist(adlFileCheckpointPath, id)
   }
 
-  def isAdlFileProcessed(connection: CosmosDBConnection,
+  def isAdlFileProcessed(connection: AsyncCosmosDBConnection,
                          collectionLink: String,
                          adlFilePath: String,
                          writingBatchId: String): Boolean = {
     val encodedFilePath = URLEncoder.encode(adlFilePath, StandardCharsets.UTF_8.name())
     val query = s"SELECT VALUE 1 FROM c WHERE c.id = '$encodedFilePath' and c.batchId = '$writingBatchId' and c.isComplete = true"
-    val response = connection.queryDocuments(collectionLink, query, null)
+    val response = connection.queryDocuments(collectionLink, Array(query), null)
     response.hasNext
   }
 
-  def getUnprocessedFiles(connection: CosmosDBConnection,
+  def getUnprocessedFiles(connection: AsyncCosmosDBConnection,
                           collectionLink: String): java.util.HashSet[String] = {
     val feedOptions = new FeedOptions()
-    val response = connection.queryDocuments(collectionLink, feedOptions)
+    val response = connection.readDocuments(collectionLink, feedOptions)
     var files = new java.util.HashSet[String]()
     while (response.hasNext) {
       val item = response.next()

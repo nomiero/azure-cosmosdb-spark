@@ -24,6 +24,7 @@ package com.microsoft.azure.cosmosdb.spark.schema
 
 import java.util.concurrent.{ConcurrentHashMap, ConcurrentMap}
 
+import com.microsoft.azure.cosmosdb.spark.CosmosDBConnection.logInfo
 import com.microsoft.azure.cosmosdb.spark.config.CachingMode.CachingMode
 import com.microsoft.azure.cosmosdb.spark.config._
 import com.microsoft.azure.cosmosdb.spark.{DefaultSource, LoggingTrait}
@@ -123,6 +124,7 @@ private[spark] case class DataFrameReaderFunctions(@transient dfr: DataFrameRead
   }
 
   private def createCosmosDBDataFrame(schema: Option[StructType], readConfig: Option[Config], sqlContext: Option[SQLContext]): DataFrame = {
+    logInfo(s"Reinitializing client for host ${schema}")
     if (readConfig.isDefined) {
       val incrementalView: Boolean = readConfig.get
         .get[String](CosmosDBConfig.IncrementalView)

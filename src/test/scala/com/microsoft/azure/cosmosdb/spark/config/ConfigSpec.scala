@@ -51,7 +51,7 @@ class ConfigSpec extends RequiresCosmosDB {
       connectionPolicy.getPreferredLocations should equal(null)
 
       val feedOptions = CosmosDBRDDIterator.lastFeedOptions
-      feedOptions.getPageSize should equal(CosmosDBConfig.DefaultPageSize)
+      feedOptions.getMaxItemCount should equal(CosmosDBConfig.DefaultPageSize)
 
       CosmosDBRelation.lastSamplingRatio should equal(CosmosDBConfig.DefaultSamplingRatio)
       CosmosDBRelation.lastSampleSize should equal(CosmosDBConfig.DefaultSampleSize)
@@ -102,11 +102,10 @@ class ConfigSpec extends RequiresCosmosDB {
     connectionPolicy.getPreferredLocations.size() should equal(2)
 
     val feedOptions = CosmosDBRDDIterator.lastFeedOptions
-    feedOptions.getPageSize.toString should equal(readConfig.properties(CosmosDBConfig.QueryPageSize))
+    feedOptions.getMaxItemCount.toString should equal(readConfig.properties(CosmosDBConfig.QueryPageSize))
     feedOptions.getMaxDegreeOfParallelism.toString should equal(readConfig.properties(CosmosDBConfig.QueryMaxDegreeOfParallelism))
     feedOptions.getMaxBufferedItemCount.toString should equal(readConfig.properties(CosmosDBConfig.QueryMaxBufferedItemCount))
     feedOptions.getEnableScanInQuery.toString should equal(readConfig.properties(CosmosDBConfig.QueryEnableScan))
-    feedOptions.getDisableRUPerMinuteUsage.toString should equal(readConfig.properties(CosmosDBConfig.QueryDisableRUPerMinuteUsage))
     feedOptions.getEmitVerboseTracesInQuery.toString should equal(readConfig.properties(CosmosDBConfig.QueryEmitVerboseTraces))
 
     CosmosDBRelation.lastSamplingRatio.toString should equal(readConfig.properties(CosmosDBConfig.SamplingRatio))

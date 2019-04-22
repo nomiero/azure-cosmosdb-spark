@@ -25,7 +25,7 @@ package com.microsoft.azure.cosmosdb.spark.partitioner
 import com.microsoft.azure.cosmosdb.spark.config._
 import com.microsoft.azure.cosmosdb.spark.schema.FilterConverter
 import com.microsoft.azure.cosmosdb.spark.util.HdfsUtils
-import com.microsoft.azure.cosmosdb.spark.{ADLConnection, ADLFilePartition, CosmosDBConnection, LoggingTrait}
+import com.microsoft.azure.cosmosdb.spark.{ADLConnection, ADLFilePartition, AsyncCosmosDBConnection, LoggingTrait}
 import org.apache.spark.Partition
 import org.apache.spark.sql.sources.Filter
 
@@ -38,7 +38,7 @@ class CosmosDBPartitioner() extends Partitioner[Partition] with LoggingTrait {
     * @param config Partition configuration
     */
   override def computePartitions(config: Config): Array[Partition] = {
-    var connection: CosmosDBConnection = new CosmosDBConnection(config)
+    var connection: AsyncCosmosDBConnection = new AsyncCosmosDBConnection(config)
     var partitionKeyRanges = connection.getAllPartitions
     logDebug(s"CosmosDBPartitioner: This CosmosDB has ${partitionKeyRanges.length} partitions")
     Array.tabulate(partitionKeyRanges.length){
@@ -51,7 +51,7 @@ class CosmosDBPartitioner() extends Partitioner[Partition] with LoggingTrait {
                         filters: Array[Filter] = Array(),
                         hadoopConfig: mutable.Map[String, String]): Array[Partition] = {
     val adlImport = config.get(CosmosDBConfig.adlAccountFqdn).isDefined
-    var connection: CosmosDBConnection = new CosmosDBConnection(config)
+    var connection: AsyncCosmosDBConnection = new AsyncCosmosDBConnection(config)
     if (adlImport) {
       // ADL source
       val hdfsUtils = new HdfsUtils(hadoopConfig.toMap)
@@ -86,7 +86,7 @@ class CosmosDBPartitioner() extends Partitioner[Partition] with LoggingTrait {
     } else {
       // CosmosDB source
       var query: String = FilterConverter.createQueryString(requiredColumns, filters)
-      connection.reinitializeClient()
+      // connection.reinitializeClient()
       var partitionKeyRanges = connection.getAllPartitions(query)
       logDebug(s"CosmosDBPartitioner: This CosmosDB has ${partitionKeyRanges.length} partitions")
       Array.tabulate(partitionKeyRanges.length) {

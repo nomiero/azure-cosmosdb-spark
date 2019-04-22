@@ -49,10 +49,10 @@ object CosmosDBConfig {
   val ConnectionRequestTimeout = "connectionrequesttimeout" // in seconds
 
   // Query related config
-  val QueryCustom = "query_custom"
-  val QueryCustom2 = "query_custom"
-  val QueryCustom3 = "query_custom"
-  val QueryCustom4 = "query_custom"
+  val QueryCustom = "query_custom1"
+  val QueryCustom2 = "query_custom2"
+  val QueryCustom3 = "query_custom3"
+  val QueryCustom4 = "query_custom4"
 
   val QueryPageSize = "query_pagesize"
   val QueryMaxRetryOnThrottled = "query_maxretryattemptsonthrottledrequests"
@@ -60,7 +60,6 @@ object CosmosDBConfig {
   val QueryMaxDegreeOfParallelism = "query_maxdegreeofparallelism"
   val QueryMaxBufferedItemCount =  "query_maxbuffereditemcount"
   val QueryEnableScan = "query_enablescan"
-  val QueryDisableRUPerMinuteUsage = "query_disableruperminuteusage"
   val QueryEmitVerboseTraces = "query_emitverbosetraces"
   val ResponseContinuationTokenLimitInKb = "response_continuationtoken_limit_kb"
 

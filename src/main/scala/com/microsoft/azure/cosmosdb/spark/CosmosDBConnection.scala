@@ -44,32 +44,32 @@ object CosmosDBConnection extends LoggingTrait {
   var clients: scala.collection.mutable.Map[String, DocumentClient] = scala.collection.mutable.Map[String,DocumentClient]()
 
   def getClient(connectionMode: ConnectionMode, clientConfiguration: ClientConfiguration): DocumentClient = synchronized {
-      val cacheKey = clientConfiguration.host + "-" + clientConfiguration.key
-      if (!clients.contains(cacheKey)) {
-          logInfo(s"Initializing new client for host ${clientConfiguration.host}")
-          clients(cacheKey) = new DocumentClient(
-          clientConfiguration.host,
-          clientConfiguration.key,
-          clientConfiguration.connectionPolicy,
-          clientConfiguration.consistencyLevel)
-          CosmosDBConnection.lastConsistencyLevel = Some(clientConfiguration.consistencyLevel)
-      }
+    val cacheKey = clientConfiguration.host + "-" + clientConfiguration.key
+    if (!clients.contains(cacheKey)) {
+      logInfo(s"Initializing new client for host ${clientConfiguration.host}")
+      clients(cacheKey) = new DocumentClient(
+        clientConfiguration.host,
+        clientConfiguration.key,
+        clientConfiguration.connectionPolicy,
+        clientConfiguration.consistencyLevel)
+      CosmosDBConnection.lastConsistencyLevel = Some(clientConfiguration.consistencyLevel)
+    }
 
-      clients.get(cacheKey).get
-   }
+    clients.get(cacheKey).get
+  }
 
-   def reinitializeClient(connectionMode: ConnectionMode, clientConfiguration: ClientConfiguration): DocumentClient = synchronized {
-     val cacheKey = clientConfiguration.host + "-" + clientConfiguration.key
-     if(clients.get(cacheKey).nonEmpty) {
-       logInfo(s"Reinitializing client for host ${clientConfiguration.host}")
-       val client = clients.get(cacheKey).get
-       client.close()
-       CosmosDBConnection.clients.remove(cacheKey)
-     }
+  def reinitializeClient(connectionMode: ConnectionMode, clientConfiguration: ClientConfiguration): DocumentClient = synchronized {
+    val cacheKey = clientConfiguration.host + "-" + clientConfiguration.key
+    if(clients.get(cacheKey).nonEmpty) {
+      logInfo(s"Reinitializing client for host ${clientConfiguration.host}")
+      val client = clients.get(cacheKey).get
+      client.close()
+      CosmosDBConnection.clients.remove(cacheKey)
+    }
 
-     getClient(connectionMode, clientConfiguration)
-   }
- }
+    getClient(connectionMode, clientConfiguration)
+  }
+}
 
 private[spark] case class CosmosDBConnection(config: Config) extends LoggingTrait with Serializable {
 
@@ -165,7 +165,7 @@ private[spark] case class CosmosDBConnection(config: Config) extends LoggingTrai
       offers = documentClient.queryOffers(s"SELECT * FROM c where c.offerResourceId = '${getDatabase.getResourceId}'", null).getQueryIterable.toList
       // database throughput
       if (offers.isEmpty) {
-          throw new IllegalStateException("Cannot find the collection corresponding offer.")
+        throw new IllegalStateException("Cannot find the collection corresponding offer.")
       }
     }
 
@@ -181,13 +181,13 @@ private[spark] case class CosmosDBConnection(config: Config) extends LoggingTrai
     documentClient = CosmosDBConnection.reinitializeClient(connectionMode, getClientConfiguration(config))
   }
 
-  def queryDocuments (queryStrings : Array[String],
-        feedOpts : FeedOptions) : Iterator [Document] = {
+  def queryDocuments (queryString : String,
+                      feedOpts : FeedOptions) : Iterator [Document] = {
     val feedResponse = documentClient.queryDocuments(collectionLink, new SqlQuerySpec(queryString), feedOpts)
     feedResponse.getQueryIterable.iterator()
   }
 
-  def queryDocuments (collectionLink: String, queryStrings : Array[String],
+  def queryDocuments (collectionLink: String, queryString : String,
                       feedOpts : FeedOptions) : Iterator [Document] = {
     val feedResponse = documentClient.queryDocuments(collectionLink, new SqlQuerySpec(queryString), feedOpts)
     feedResponse.getQueryIterable.iterator()
@@ -229,8 +229,8 @@ private[spark] case class CosmosDBConnection(config: Config) extends LoggingTrai
   }
 
   def upsertDocument(collectionLink: String,
-                      document: Document,
-                      requestOptions: RequestOptions): Unit = {
+                     document: Document,
+                     requestOptions: RequestOptions): Unit = {
     logTrace(s"Upserting document $document")
     documentClient.upsertDocument(collectionLink, document, requestOptions, false)
   }

@@ -81,14 +81,16 @@ private[spark] class CosmosDBSource(sqlContext: SQLContext,
       val sampleSize = streamConfigMap.
         getOrElse(CosmosDBConfig.SampleSize, CosmosDBConfig.DefaultSampleSize)
 
-      logDebug(s"Reading data to derive the schema")
+      logInfo(s"Reading data to derive the schema")
       val helperDfConfig: Map[String, String] = streamConfigMap
         .-(CosmosDBConfig.ChangeFeedStartFromTheBeginning)
         .+((CosmosDBConfig.ChangeFeedStartFromTheBeginning, String.valueOf(false)))
-        .-(CosmosDBConfig.ReadChangeFeed).
-        +((CosmosDBConfig.ReadChangeFeed, String.valueOf(false)))
-        .-(CosmosDBConfig.QueryCustom).
-        +((CosmosDBConfig.QueryCustom, "SELECT TOP " + sampleSize + " * FROM c"))
+        .-(CosmosDBConfig.ReadChangeFeed)
+        .+((CosmosDBConfig.ReadChangeFeed, String.valueOf(false)))
+        .-(CosmosDBConfig.QueryCustom)
+        .-(CosmosDBConfig.QueryCustom2)
+        .+((CosmosDBConfig.QueryCustom, "SELECT TOP " + sampleSize + " * FROM c"))
+        .+((CosmosDBConfig.QueryCustom2, "SELECT TOP " + sampleSize + " * FROM c"))
       val shouldInferSchema = helperDfConfig.
         getOrElse(CosmosDBConfig.InferStreamSchema, CosmosDBConfig.DefaultInferStreamSchema.toString).
         toBoolean

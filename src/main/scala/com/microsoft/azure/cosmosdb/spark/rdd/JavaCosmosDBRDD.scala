@@ -22,7 +22,7 @@
   */
 package com.microsoft.azure.cosmosdb.spark.rdd
 
-import com.microsoft.azure.documentdb._
+import com.microsoft.azure.cosmosdb.Document
 import org.apache.spark.api.java.JavaRDD
 import org.apache.spark.sql.{DataFrame, Dataset};
 

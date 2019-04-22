@@ -22,11 +22,11 @@
   */
 package com.microsoft.azure.cosmosdb.spark.rdd
 
+import com.microsoft.azure.cosmosdb.Document
 import com.microsoft.azure.cosmosdb.spark.config.{Config, CosmosDBConfig}
 import com.microsoft.azure.cosmosdb.spark.partitioner.{CosmosDBPartition, CosmosDBPartitioner}
 import com.microsoft.azure.cosmosdb.spark.util.HdfsUtils
 import com.microsoft.azure.cosmosdb.spark.{ADLFilePartition, ADLPartitionIterator, CosmosDBSpark}
-import com.microsoft.azure.documentdb._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.sources.Filter
 import org.apache.spark.sql.types.StructType

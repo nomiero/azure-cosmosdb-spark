@@ -26,12 +26,12 @@ import java.util
 import java.util.concurrent.ConcurrentHashMap
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.microsoft.azure.cosmosdb.{ChangeFeedOptions, Document, FeedOptions}
 import com.microsoft.azure.cosmosdb.spark.config.{Config, CosmosDBConfig}
 import com.microsoft.azure.cosmosdb.spark.partitioner.CosmosDBPartition
 import com.microsoft.azure.cosmosdb.spark.schema._
 import com.microsoft.azure.cosmosdb.spark.util.HdfsUtils
-import com.microsoft.azure.cosmosdb.spark.{CosmosDBConnection, LoggingTrait}
-import com.microsoft.azure.documentdb._
+import com.microsoft.azure.cosmosdb.spark.{AsyncCosmosDBConnection, LoggingTrait}
 import org.apache.commons.lang3.StringUtils
 import org.apache.spark._
 import org.apache.spark.sql.sources.Filter
@@ -70,7 +70,7 @@ object CosmosDBRDDIterator {
     * @return       the corresponding global continuation token
     */
   def getCollectionTokens(config: Config, shouldGetCurrentToken: Boolean = false): String = {
-    val connection = new CosmosDBConnection(config)
+    val connection = new AsyncCosmosDBConnection(config)
     val collectionLink = connection.collectionLink
     val queryName = config
       .get[String](CosmosDBConfig.ChangeFeedQueryName).get
@@ -140,7 +140,7 @@ class CosmosDBRDDIterator(hadoopConfig: mutable.Map[String, String],
 
   lazy val reader: Iterator[Document] = {
     initialized = true
-    var connection: CosmosDBConnection = new CosmosDBConnection(config)
+    var connection: AsyncCosmosDBConnection = new AsyncCosmosDBConnection(config)
 
     val readingChangeFeed: Boolean = config
       .get[String](CosmosDBConfig.ReadChangeFeed)
@@ -157,7 +157,7 @@ class CosmosDBRDDIterator(hadoopConfig: mutable.Map[String, String],
       */
     def queryDocuments: Iterator[Document] = {
       val feedOpts = new FeedOptions()
-      feedOpts.setPageSize(pageSize)
+      feedOpts.setMaxItemCount(pageSize)
       val maxDegreeOfParallelism = config
         .get[String](CosmosDBConfig.QueryMaxDegreeOfParallelism)
         .getOrElse(CosmosDBConfig.DefaultQueryMaxDegreeOfParallelism.toString)
@@ -173,11 +173,7 @@ class CosmosDBRDDIterator(hadoopConfig: mutable.Map[String, String],
       if (enableScanInQuery.isDefined) {
         feedOpts.setEnableScanInQuery(enableScanInQuery.get.toBoolean)
       }
-      val disableRUPerMinuteUsage = config
-        .get[String](CosmosDBConfig.QueryDisableRUPerMinuteUsage)
-      if (disableRUPerMinuteUsage.isDefined) {
-        feedOpts.setDisableRUPerMinuteUsage(disableRUPerMinuteUsage.get.toBoolean)
-      }
+
       val emitVerboseTraces = config
         .get[String](CosmosDBConfig.QueryEmitVerboseTraces)
       if (emitVerboseTraces.isDefined) {
@@ -195,25 +191,24 @@ class CosmosDBRDDIterator(hadoopConfig: mutable.Map[String, String],
       val queryString = config
         .get[String](CosmosDBConfig.QueryCustom)
         .getOrElse(FilterConverter.createQueryString(requiredColumns, filters))
-      logInfo(s"CosmosDBRDDIterator::LazyReader, created query string: $queryString")
 
       val queryString2 =  config
         .get[String](CosmosDBConfig.QueryCustom2)
         .getOrElse(FilterConverter.createQueryString(requiredColumns, filters))
 
       val queryString3 =  config
-        .get[String](CosmosDBConfig.QueryCustom2)
+        .get[String](CosmosDBConfig.QueryCustom3)
         .getOrElse(FilterConverter.createQueryString(requiredColumns, filters))
 
       val queryString4 =  config
-        .get[String](CosmosDBConfig.QueryCustom3)
+        .get[String](CosmosDBConfig.QueryCustom4)
         .getOrElse(FilterConverter.createQueryString(requiredColumns, filters))
 
       val queryString5 =  config
         .get[String](CosmosDBConfig.QueryCustom4)
         .getOrElse(FilterConverter.createQueryString(requiredColumns, filters))
 
-      val queries = Array(queryString, queryString2, queryString3, queryString4, queryString5)
+      val queries = Array(queryString, queryString2)
       if (queryString == FilterConverter.defaultQuery) {
         // If there is no filters, read feed should be used
         connection.readDocuments(feedOpts)
@@ -325,7 +320,7 @@ class CosmosDBRDDIterator(hadoopConfig: mutable.Map[String, String],
       if (currentToken != null && !currentToken.isEmpty) {
         changeFeedOptions.setRequestContinuation(currentToken)
       }
-      changeFeedOptions.setPageSize(pageSize)
+      changeFeedOptions.setMaxItemCount(pageSize)
 
       val structuredStreaming: Boolean = config
         .get[String](CosmosDBConfig.StructuredStreaming)
@@ -338,13 +333,13 @@ class CosmosDBRDDIterator(hadoopConfig: mutable.Map[String, String],
         .toBoolean
 
       // Query for change feed
-      val response = connection.readChangeFeed(changeFeedOptions, structuredStreaming, shouldInferStreamSchema)
-      val iteratorDocument = response._1
-      val nextToken = response._2
+      val response = connection.queryDocumentChangeFeed(changeFeedOptions, structuredStreaming, shouldInferStreamSchema)
+      val iteratorDocument = null
+      val nextToken = null
 
       updateTokens(currentToken, nextToken, partitionId)
 
-      logDebug(s"changeFeedOptions.partitionKeyRangeId = ${changeFeedOptions.getPartitionKeyRangeId}, continuation = $currentToken, new token = ${response._2}, iterator.hasNext = ${response._1.hasNext}")
+      // logDebug(s"changeFeedOptions.partitionKeyRangeId = ${changeFeedOptions.getPartitionKeyRangeId}, continuation = $currentToken, new token = ${response._2}, iterator.hasNext = ${response._1.hasNext}")
 
       iteratorDocument
     }
