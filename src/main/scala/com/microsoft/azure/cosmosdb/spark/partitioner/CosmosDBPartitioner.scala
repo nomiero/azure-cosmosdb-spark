@@ -26,6 +26,7 @@ import com.microsoft.azure.cosmosdb.spark.config._
 import com.microsoft.azure.cosmosdb.spark.schema.FilterConverter
 import com.microsoft.azure.cosmosdb.spark.util.HdfsUtils
 import com.microsoft.azure.cosmosdb.spark.{ADLConnection, ADLFilePartition, CosmosDBConnection, CosmosDBLoggingTrait}
+import org.apache.commons.lang3.StringUtils
 import org.apache.spark.Partition
 import org.apache.spark.sql.sources.Filter
 
@@ -51,6 +52,9 @@ class CosmosDBPartitioner() extends Partitioner[Partition] with CosmosDBLoggingT
                         filters: Array[Filter] = Array(),
                         hadoopConfig: mutable.Map[String, String]): Array[Partition] = {
     val adlImport = config.get(CosmosDBConfig.adlAccountFqdn).isDefined
+    val viewFilter = config.get(CosmosDBConfig.ViewFilter)
+      .getOrElse(StringUtils.EMPTY)
+
     var connection: CosmosDBConnection = new CosmosDBConnection(config)
     connection.reinitializeClient()
 
@@ -65,6 +69,7 @@ class CosmosDBPartitioner() extends Partitioner[Partition] with CosmosDBLoggingT
       val adlMaxFileCount = config.get(CosmosDBConfig.adlMaxFileCount)
         .getOrElse(CosmosDBConfig.DefaultAdlMaxFileCount.toString)
         .toInt
+
       logDebug(s"The Adl folder has ${adlFiles.size()} files")
       val partitions = new ListBuffer[ADLFilePartition]
       var partitionIndex = 0
@@ -87,9 +92,10 @@ class CosmosDBPartitioner() extends Partitioner[Partition] with CosmosDBLoggingT
       partitions.toArray
     } else {
       // CosmosDB source
-      var query: String = FilterConverter.createQueryString(requiredColumns, filters)
+      var query: String = FilterConverter.createQueryString(requiredColumns, viewFilter, filters)
       var partitionKeyRanges = connection.getAllPartitions(query)
-      logDebug(s"CosmosDBPartitioner: This CosmosDB has ${partitionKeyRanges.length} partitions")
+      logInfo(s"Using the query ${query} to infer the schema")
+      logInfo(s"CosmosDBPartitioner: This CosmosDB has ${partitionKeyRanges.length} partitions")
       Array.tabulate(partitionKeyRanges.length) {
         i => CosmosDBPartition(i, partitionKeyRanges.length, partitionKeyRanges(i).getId.toInt)
       }

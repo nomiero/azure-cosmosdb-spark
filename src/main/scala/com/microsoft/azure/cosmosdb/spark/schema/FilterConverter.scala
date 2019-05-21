@@ -32,16 +32,22 @@ private [spark] object FilterConverter extends CosmosDBLoggingTrait {
 
   def createQueryString(
                          requiredColumns: Array[String],
+                         viewFilter: String,
                          filters: Array[Filter]): String = {
 
     var selectClause = "*"
     //Note: for small document, the projection will transport less data but it might be slower because server
     // need to process the projection.
     //if (requiredColumns.nonEmpty)   selectClause = requiredColumns.map(x => "c." + x).mkString(",")
+    val hasQueryFilter = filters != null && filters.nonEmpty
+    val hasViewFilter = viewFilter != null && viewFilter.nonEmpty
+    var whereClause  = if (hasQueryFilter || hasViewFilter) "where " else StringUtils.EMPTY
+    if (hasQueryFilter) {
+      whereClause = whereClause + createWhereClause(filters)
+      if (hasViewFilter) whereClause = whereClause + " AND"
+    }
 
-    var whereClause = StringUtils.EMPTY
-    if (filters.nonEmpty) whereClause = s"where ${createWhereClause(filters)}"
-
+    if (hasViewFilter) whereClause = whereClause + String.format(" (%s)", viewFilter)
     String.format(queryTemplate, selectClause, whereClause)
   }
   
@@ -54,7 +60,7 @@ private [spark] object FilterConverter extends CosmosDBLoggingTrait {
         case In(field, values)                => s"""(c${createFieldIdentifier(field)} IN (${values.map(value => createValueClause(value)).mkString(",")}))"""
         case LessThan(field, value)           => s"""(c${createFieldIdentifier(field)} < ${createValueClause(value)})"""
         case LessThanOrEqual(field, value)    => s"""(c${createFieldIdentifier(field)} <= ${createValueClause(value)})"""
-        case IsNull(field)                    => s"""(c${createFieldIdentifier(field)} = null"""
+        case IsNull(field)                    => s"""(c${createFieldIdentifier(field)} = null)"""
         case IsNotNull(field)                 => s"""(c${createFieldIdentifier(field)} != null)"""
         case And(leftFilter, rightFilter)     => s"""(${createWhereClause(Array(leftFilter))} AND ${createWhereClause(Array(rightFilter))})"""
         case Or(leftFilter, rightFilter)      => s"""(${createWhereClause(Array(leftFilter))} OR ${createWhereClause(Array(rightFilter))})"""
