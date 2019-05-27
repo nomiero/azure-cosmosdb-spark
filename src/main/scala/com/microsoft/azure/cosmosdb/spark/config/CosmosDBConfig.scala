@@ -116,6 +116,8 @@ object CosmosDBConfig {
   val adlCosmosDbDataCollectionPkValue = "adlcosmosdbdatacolletionpkvalue"
   val adlMaxFileCount = "adlmaxfilecount"
 
+  // Using pre-defined schema
+  val schemaTypeName = "schematypename"
   val ApplicationName = "application_name"
 
   // When the streaming source is slow, there will be times when getting data from a specific continuation token

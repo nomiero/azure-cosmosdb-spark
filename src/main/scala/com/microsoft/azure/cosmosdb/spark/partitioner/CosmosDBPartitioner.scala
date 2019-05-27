@@ -51,6 +51,7 @@ class CosmosDBPartitioner() extends Partitioner[Partition] with CosmosDBLoggingT
                         filters: Array[Filter] = Array(),
                         hadoopConfig: mutable.Map[String, String]): Array[Partition] = {
     val adlImport = config.get(CosmosDBConfig.adlAccountFqdn).isDefined
+
     var connection: CosmosDBConnection = new CosmosDBConnection(config)
     connection.reinitializeClient()
 
@@ -87,7 +88,8 @@ class CosmosDBPartitioner() extends Partitioner[Partition] with CosmosDBLoggingT
       partitions.toArray
     } else {
       // CosmosDB source
-      var query: String = FilterConverter.createQueryString(requiredColumns, filters)
+      val schemaTypeName = config.get[String](CosmosDBConfig.schemaTypeName)
+      var query: String = FilterConverter.createQueryString(requiredColumns, filters, schemaTypeName)
       var partitionKeyRanges = connection.getAllPartitions(query)
       logDebug(s"CosmosDBPartitioner: This CosmosDB has ${partitionKeyRanges.length} partitions")
       Array.tabulate(partitionKeyRanges.length) {
