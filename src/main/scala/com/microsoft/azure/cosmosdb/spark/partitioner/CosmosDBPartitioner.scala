@@ -22,6 +22,7 @@
   */
 package com.microsoft.azure.cosmosdb.spark.partitioner
 
+import com.microsoft.azure.cosmosdb.PartitionKeyRange
 import com.microsoft.azure.cosmosdb.spark.config._
 import com.microsoft.azure.cosmosdb.spark.schema.FilterConverter
 import com.microsoft.azure.cosmosdb.spark.util.HdfsUtils
@@ -39,11 +40,8 @@ class CosmosDBPartitioner() extends Partitioner[Partition] with LoggingTrait {
     */
   override def computePartitions(config: Config): Array[Partition] = {
     var connection: AsyncCosmosDBConnection = new AsyncCosmosDBConnection(config)
-    var partitionKeyRanges = connection.getAllPartitions
-    logDebug(s"CosmosDBPartitioner: This CosmosDB has ${partitionKeyRanges.length} partitions")
-    Array.tabulate(partitionKeyRanges.length){
-      i => CosmosDBPartition(i, partitionKeyRanges.length, partitionKeyRanges(i).getId.toInt)
-    }
+    var partitionKeyRanges: Array[PartitionKeyRange] = connection.getAllPartitions
+    computeCosmosDBPartitions(config, connection, partitionKeyRanges)
   }
 
   def computePartitions(config: Config,
@@ -89,9 +87,32 @@ class CosmosDBPartitioner() extends Partitioner[Partition] with LoggingTrait {
       // connection.reinitializeClient()
       var partitionKeyRanges = connection.getAllPartitions(query)
       logDebug(s"CosmosDBPartitioner: This CosmosDB has ${partitionKeyRanges.length} partitions")
-      Array.tabulate(partitionKeyRanges.length) {
-        i => CosmosDBPartition(i, partitionKeyRanges.length, partitionKeyRanges(i).getId.toInt)
-      }
+      computeCosmosDBPartitions(config, connection, partitionKeyRanges)
     }
+  }
+
+  private def computeCosmosDBPartitions(config: Config, connection: AsyncCosmosDBConnection, partitionKeyRanges: Array[PartitionKeyRange]) = {
+    val pkrIterator = partitionKeyRanges.iterator
+    logDebug(s"CosmosDBPartitioner: This CosmosDB has ${partitionKeyRanges.length} partitions")
+    val partitionsPerCore = config.getOrElse[String](CosmosDBConfig.PartitionsPerCore,
+      CosmosDBConfig.DefaultPartitionsPerCore.toString).toInt
+
+    logInfo(s"nunber of partitions per core is ${partitionsPerCore}")
+    val partitions = ListBuffer[Partition]()
+    var index = 0
+
+    while (pkrIterator.hasNext) {
+      var partitionCounter = 0
+      val pkrs = ListBuffer[Int]()
+      while (partitionCounter < partitionsPerCore && pkrIterator.hasNext) {
+        pkrs += pkrIterator.next().getId().toInt
+        partitionCounter += 1
+      }
+
+      partitions += CosmosDBPartition(index, partitionKeyRanges.length, pkrs.toList)
+      index += 1
+    }
+
+    partitions.toArray
   }
 }

@@ -185,7 +185,6 @@ class CosmosDBRDDIterator(hadoopConfig: mutable.Map[String, String],
         .toInt
       feedOpts.setResponseContinuationTokenLimitInKb(responseContinuationTokenLimitInKb)
 
-      feedOpts.setPartitionKeyRangeIdInternal(partition.partitionKeyRangeId.toString)
       CosmosDBRDDIterator.lastFeedOptions = feedOpts
 
       val queryString = config
@@ -208,12 +207,12 @@ class CosmosDBRDDIterator(hadoopConfig: mutable.Map[String, String],
         .get[String](CosmosDBConfig.QueryCustom4)
         .getOrElse(FilterConverter.createQueryString(requiredColumns, filters))
 
-      val queries = Array(queryString, queryString2)
+      val queries = Array(queryString)
       if (queryString == FilterConverter.defaultQuery) {
         // If there is no filters, read feed should be used
         connection.readDocuments(feedOpts)
       } else {
-        connection.queryDocuments(queries, feedOpts)
+        connection.queryDocuments(queries, feedOpts, partition.partitionKeyRangeIds)
       }
     }
 
@@ -233,7 +232,7 @@ class CosmosDBRDDIterator(hadoopConfig: mutable.Map[String, String],
       val queryName: String = config
         .get[String](CosmosDBConfig.ChangeFeedQueryName)
         .get
-      val partitionId = partition.partitionKeyRangeId.toString
+      val partitionId = partition.partitionKeyRangeIds.head.toString
       val collectionLink = connection.collectionLink
 
       // Initialize the static tokens cache or read it from checkpoint
@@ -315,7 +314,7 @@ class CosmosDBRDDIterator(hadoopConfig: mutable.Map[String, String],
       val currentToken: String = getContinuationToken(partitionId)
 
       val changeFeedOptions: ChangeFeedOptions = new ChangeFeedOptions()
-      changeFeedOptions.setPartitionKeyRangeId(partition.partitionKeyRangeId.toString)
+      changeFeedOptions.setPartitionKeyRangeId(partition.partitionKeyRangeIds.head.toString)
       changeFeedOptions.setStartFromBeginning(startFromTheBeginning)
       if (currentToken != null && !currentToken.isEmpty) {
         changeFeedOptions.setRequestContinuation(currentToken)

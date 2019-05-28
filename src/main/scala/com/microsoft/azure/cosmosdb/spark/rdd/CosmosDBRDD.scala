@@ -115,10 +115,10 @@ class CosmosDBRDD(
 
       case cosmosDBPartition: CosmosDBPartition =>
         var cosmosDBPartition: CosmosDBPartition = partition.asInstanceOf[CosmosDBPartition]
-        logInfo(s"CosmosDBRDD:compute: Start CosmosDBRDD compute task for partition key range id ${cosmosDBPartition.partitionKeyRangeId}")
+        logInfo(s"CosmosDBRDD:compute: Start CosmosDBRDD compute task for partition key range id ${cosmosDBPartition.partitionKeyRangeIds}")
 
         context.addTaskCompletionListener((ctx: TaskContext) => {
-          logInfo(s"CosmosDBRDD:compute: CosmosDBRDD compute task completed for partition key range id ${cosmosDBPartition.partitionKeyRangeId}")
+          logInfo(s"CosmosDBRDD:compute: CosmosDBRDD compute task completed for partition key range id ${cosmosDBPartition.partitionKeyRangeIds}")
         })
 
         new CosmosDBRDDIterator(

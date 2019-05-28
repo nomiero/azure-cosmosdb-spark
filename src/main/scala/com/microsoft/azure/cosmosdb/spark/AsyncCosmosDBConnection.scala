@@ -35,6 +35,7 @@ import com.microsoft.azure.cosmosdb.spark.schema.CosmosDBRowConverter
 import org.apache.spark.sql.Row
 
 import scala.collection.JavaConversions._
+import scala.collection.mutable.ListBuffer
 import scala.language.implicitConversions
 import scala.reflect.ClassTag
 
@@ -83,14 +84,24 @@ case class AsyncCosmosDBConnection(config: Config) extends LoggingTrait with Ser
     override def call(page: FeedResponse[Document]): Observable[Document] = Observable.from(page.getResults)
   }
 
-  def queryDocuments(queries: Array[String], feedOpts: FeedOptions): Iterator[Document] = {
-    queryDocuments(collectionLink, queries, feedOpts)
+  def queryDocuments(queries: Array[String], feedOpts: FeedOptions, partitionKeyRanges: List[Int]): Iterator[Document] = {
+    queryDocuments(collectionLink, queries, feedOpts, partitionKeyRanges)
   }
 
-  def queryDocuments(collectionLink: String, queries: Array[String], feedOpts: FeedOptions): Iterator[Document] = {
-    val observables: Array[Observable[FeedResponse[Document]]] = queries.map(query => {
+  def queryDocuments(collectionLink: String,
+                     queries: Array[String],
+                     feedOpts: FeedOptions,
+                     partitionKeyRanges: List[Int]): Iterator[Document] = {
+    var observables = ListBuffer[Observable[FeedResponse[Document]]]()
+    queries.foreach(query => {
       logInfo(s"Getting observable for query: $query")
-      asyncDocumentClient.queryDocuments(collectionLink, query, feedOpts)
+      if (partitionKeyRanges != null )
+        partitionKeyRanges.foreach(pkr => {
+          feedOpts.setPartitionKeyRangeIdInternal(pkr.toString)
+          observables.add(asyncDocumentClient.queryDocuments(collectionLink, query, feedOpts))
+        })
+      else
+        observables.add(asyncDocumentClient.queryDocuments(collectionLink, query, feedOpts))
     });
 
     Observable.merge(observables.toList, 5)
