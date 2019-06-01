@@ -42,7 +42,7 @@ private [spark] object FilterConverter extends CosmosDBLoggingTrait {
     var whereClause = StringUtils.EMPTY
     if (filters.nonEmpty) whereClause = s"where ${createWhereClause(filters)}"
     if (schemaTypeName.isDefined) {
-      val schemaFilter = s"c._schemaTypeName = ${schemaTypeName.get}"
+      val schemaFilter = s"""c._schemaTypeName = "${schemaTypeName.get}""""
       if (whereClause.nonEmpty)
         whereClause = whereClause + s" AND ${schemaFilter}"
       else
