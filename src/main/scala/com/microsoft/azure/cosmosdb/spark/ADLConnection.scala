@@ -73,7 +73,7 @@ object ADLConnection {
                          writingBatchId: String): Boolean = {
     val encodedFilePath = URLEncoder.encode(adlFilePath, StandardCharsets.UTF_8.name())
     val query = s"SELECT VALUE 1 FROM c WHERE c.id = '$encodedFilePath' and c.batchId = '$writingBatchId' and c.isComplete = true"
-    val response = connection.queryDocuments(collectionLink, Array(query), null, null)
+    val response = connection.queryDocuments(collectionLink, Array(query), null, null, None)
     response.hasNext
   }
 

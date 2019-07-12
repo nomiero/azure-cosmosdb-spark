@@ -114,10 +114,13 @@ private[spark] case class DataFrameReaderFunctions(@transient dfr: DataFrameRead
       DataFrameReaderFunctions.cachedData.put(collection, df)
     }
 
+    logInfo("Before creating dataframe")
     if (sqlContext.isDefined) {
+      logInfo("Creating streaming dataframe")
       val dfWithStreamingTrue = StreamingUtils.createDataFrameStreaming(df, schema.get, sqlContext.get)
       dfWithStreamingTrue
     } else {
+      logInfo("Creating non-streaming dataframe")
       df
     }
 

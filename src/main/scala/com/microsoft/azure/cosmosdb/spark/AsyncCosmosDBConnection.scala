@@ -28,9 +28,13 @@ import java.util.concurrent.TimeUnit
 import com.microsoft.azure.cosmosdb.spark.config._
 import rx.Observable
 import rx.functions.Func1
+import rx.schedulers._
+import rx.Scheduler
+import java.util.concurrent.Executors
+
 import com.microsoft.azure.cosmosdb._
 import com.microsoft.azure.cosmosdb.internal._
-import com.microsoft.azure.cosmosdb.rx.AsyncDocumentClient
+import rx.AsyncDocumentClient
 import com.microsoft.azure.cosmosdb.spark.schema.CosmosDBRowConverter
 import org.apache.spark.sql.Row
 
@@ -39,6 +43,7 @@ import scala.collection.mutable.ListBuffer
 import scala.language.implicitConversions
 import scala.reflect.ClassTag
 
+
 case class AsyncClientConfiguration(host: String,
                                key: String,
                                connectionPolicy: ConnectionPolicy,
@@ -46,18 +51,28 @@ case class AsyncClientConfiguration(host: String,
 
 object AsyncCosmosDBConnection {
   var client: AsyncDocumentClient = _
+  var scheduler: Scheduler = _
   def getClient(clientConfig: AsyncClientConfiguration): AsyncDocumentClient = synchronized {
     if (client == null) {
       client = new AsyncDocumentClient
       .Builder()
         .withServiceEndpoint(clientConfig.host)
-        .withMasterKey(clientConfig.key)
+        .withMasterKeyOrResourceToken(clientConfig.key)
         .withConnectionPolicy(clientConfig.connectionPolicy)
         .withConsistencyLevel(clientConfig.consistencyLevel)
         .build
     }
 
-    client
+   client
+  }
+
+  def getScheduler(): Scheduler = synchronized {
+    if (scheduler == null) {
+      val ex = Executors.newFixedThreadPool(1)
+      scheduler = Schedulers.from(ex)
+    }
+
+    scheduler
   }
 }
 
@@ -84,30 +99,45 @@ case class AsyncCosmosDBConnection(config: Config) extends LoggingTrait with Ser
     override def call(page: FeedResponse[Document]): Observable[Document] = Observable.from(page.getResults)
   }
 
-  def queryDocuments(queries: Array[String], feedOpts: FeedOptions, partitionKeyRanges: List[Int]): Iterator[Document] = {
-    queryDocuments(collectionLink, queries, feedOpts, partitionKeyRanges)
+  def queryDocuments(queries: Array[String],
+                     feedOpts: FeedOptions,
+                     partitionKeyRanges: List[Int],
+                     maxItemCount: Option[Long]): Iterator[Document] = {
+    queryDocuments(collectionLink, queries, feedOpts, partitionKeyRanges, maxItemCount)
   }
 
   def queryDocuments(collectionLink: String,
                      queries: Array[String],
                      feedOpts: FeedOptions,
-                     partitionKeyRanges: List[Int]): Iterator[Document] = {
+                     partitionKeyRanges: List[Int],
+                     maxItemCount: Option[Long]): Iterator[Document] = {
     var observables = ListBuffer[Observable[FeedResponse[Document]]]()
     queries.foreach(query => {
       logInfo(s"Getting observable for query: $query")
-      if (partitionKeyRanges != null )
+      if (partitionKeyRanges != null)
         partitionKeyRanges.foreach(pkr => {
-          feedOpts.setPartitionKeyRangeIdInternal(pkr.toString)
-          observables.add(asyncDocumentClient.queryDocuments(collectionLink, query, feedOpts))
+          val options = cloneFeedOptions(feedOpts)
+          options.setPartitionKeyRangeIdInternal(pkr.toString)
+          observables.add(asyncDocumentClient.queryDocuments(collectionLink, query, options))
         })
       else
         observables.add(asyncDocumentClient.queryDocuments(collectionLink, query, feedOpts))
     });
 
-    Observable.merge(observables.toList, 5)
+    return Observable.merge(observables.toList, 5)
+      .subscribeOn(AsyncCosmosDBConnection.getScheduler())
       .flatMap(new QueryObservableMapper)
-      .toBlocking
-      .getIterator
+      .toBlocking.getIterator
+  }
+
+  private def cloneFeedOptions(options: FeedOptions): FeedOptions = {
+    val clone: FeedOptions = new FeedOptions()
+    clone.setEnableCrossPartitionQuery(options.getEnableCrossPartitionQuery)
+    clone.setMaxDegreeOfParallelism(options.getMaxDegreeOfParallelism)
+    clone.setResponseContinuationTokenLimitInKb(options.getResponseContinuationTokenLimitInKb)
+    clone.setMaxBufferedItemCount(options.getMaxBufferedItemCount)
+    clone.setMaxItemCount(options.getMaxItemCount)
+    clone
   }
 
   def readDocuments(feedOpts: FeedOptions): Iterator[Document] =
@@ -196,7 +226,7 @@ case class AsyncCosmosDBConnection(config: Config) extends LoggingTrait with Ser
     // Generate connection policy
     val connectionPolicy = new ConnectionPolicy()
 
-    connectionPolicy.setConnectionMode(connectionMode)
+    connectionPolicy.setConnectionMode(ConnectionMode.Direct)
 
     val applicationName = config.get[String](CosmosDBConfig.ApplicationName)
     if (applicationName.isDefined) {

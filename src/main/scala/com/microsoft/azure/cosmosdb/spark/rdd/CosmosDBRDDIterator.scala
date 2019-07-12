@@ -33,6 +33,7 @@ import com.microsoft.azure.cosmosdb.spark.schema._
 import com.microsoft.azure.cosmosdb.spark.util.HdfsUtils
 import com.microsoft.azure.cosmosdb.spark.{AsyncCosmosDBConnection, LoggingTrait}
 import org.apache.commons.lang3.StringUtils
+import org.apache.commons.lang3.time.StopWatch
 import org.apache.spark._
 import org.apache.spark.sql.sources.Filter
 
@@ -187,24 +188,9 @@ class CosmosDBRDDIterator(hadoopConfig: mutable.Map[String, String],
 
       CosmosDBRDDIterator.lastFeedOptions = feedOpts
 
+      feedOpts.setEnableCrossPartitionQuery(true)
       val queryString = config
         .get[String](CosmosDBConfig.QueryCustom)
-        .getOrElse(FilterConverter.createQueryString(requiredColumns, filters))
-
-      val queryString2 =  config
-        .get[String](CosmosDBConfig.QueryCustom2)
-        .getOrElse(FilterConverter.createQueryString(requiredColumns, filters))
-
-      val queryString3 =  config
-        .get[String](CosmosDBConfig.QueryCustom3)
-        .getOrElse(FilterConverter.createQueryString(requiredColumns, filters))
-
-      val queryString4 =  config
-        .get[String](CosmosDBConfig.QueryCustom4)
-        .getOrElse(FilterConverter.createQueryString(requiredColumns, filters))
-
-      val queryString5 =  config
-        .get[String](CosmosDBConfig.QueryCustom4)
         .getOrElse(FilterConverter.createQueryString(requiredColumns, filters))
 
       val queries = Array(queryString)
@@ -212,7 +198,7 @@ class CosmosDBRDDIterator(hadoopConfig: mutable.Map[String, String],
         // If there is no filters, read feed should be used
         connection.readDocuments(feedOpts)
       } else {
-        connection.queryDocuments(queries, feedOpts, partition.partitionKeyRangeIds)
+        connection.queryDocuments(queries, feedOpts, partition.partitionKeyRangeIds, maxItems)
       }
     }
 
@@ -354,18 +340,28 @@ class CosmosDBRDDIterator(hadoopConfig: mutable.Map[String, String],
   taskContext.addTaskCompletionListener((context: TaskContext) => closeIfNeeded())
 
   override def hasNext: Boolean = {
+    log.info(s"Has next")
     if (maxItems != null && maxItems.isDefined && maxItems.get <= itemCount) {
+      closeIfNeeded()
       return false
     }
     !closed && reader.hasNext
   }
 
   override def next(): Document = {
+    log.info(s"Next")
+
     if (!hasNext) {
       throw new NoSuchElementException("End of stream")
     }
     itemCount = itemCount + 1
-    reader.next()
+    var watch: StopWatch = new StopWatch
+    watch.start()
+    if (itemCount %10 == 0) log.info(s"Getting item with count ${itemCount}")
+    val item = reader.next()
+    watch.stop()
+    if (itemCount %10 == 0) log.info(s"Got item with latency ${watch.getTime} milliseconds")
+    item
   }
 
   def closeIfNeeded(): Unit = {
